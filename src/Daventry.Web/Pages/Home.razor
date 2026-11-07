@@ -92,6 +92,24 @@
     </main>
 
     <aside class="panels">
+        @if (_hosted.Count > 0)
+        {
+            <details open>
+                <summary>Games on this server <span class="hint">@_hosted.Count free games</span></summary>
+                <ul class="list">
+                    @foreach (var hosted in _hosted)
+                    {
+                        <li>
+                            <span class="name">@hosted.Title <small>@hosted.Note</small></span>
+                            <span class="actions">
+                                <button type="button" @onclick="() => PlayHosted(hosted)">Play</button>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
+
         <details open="@(_kept.Count > 0)">
             <summary>Your games <span class="hint">@KeptSummary</span></summary>
             @if (_kept.Count == 0)
@@ -206,6 +224,16 @@
         catch (JSException ex)
         {
             _log.Warning("web", $"The kept SoundFont or MT-32 ROMs are not available: {ex.Message}");
+        }
+
+        // games/library.json lists the games this server hosts: [{ "title", "note", "manifest" }]
+        try
+        {
+            _hosted = await Http.GetFromJsonAsync<List<HostedGame>>(new Uri(Http.BaseAddress!, "games/library.json")) ?? [];
+        }
+        catch (Exception)
+        {
+            _hosted = [];
         }
 
         // ?game=<url of a manifest> loads a game from the server: the manifest is a JSON object
@@ -328,6 +356,9 @@
             _log.Warning("web", $"The game library is not available: {ex.Message}");
         }
     }
+
+    private void PlayHosted(HostedGame game) =>
+        Navigation.NavigateTo($"?game={Uri.EscapeDataString(game.Manifest ?? "")}", forceLoad: true);
 
     private async Task LoadFromManifestAsync(string manifestUrl)
     {
@@ -649,6 +680,17 @@
     private sealed class InlineProgress(Action<string> report) : IProgress<string>
     {
         public void Report(string value) => report(value);
+    }
+
+    private List<HostedGame> _hosted = [];
+
+    private sealed class HostedGame
+    {
+        public string? Title { get; set; }
+
+        public string? Note { get; set; }
+
+        public string? Manifest { get; set; }
     }
 
     private sealed class GameManifest
